@@ -992,5 +992,95 @@ Recommended order:
 17. Monitoring
 18. CI/CD to EKS
 ```
+Sure. Here is a **separate command list only for switching Kubernetes namespaces**:
+
+## Kubernetes Namespace Switching Commands
+
+### List namespaces
+
+```bash
+kubectl get ns
+```
+
+### Check current namespace
+
+```bash
+kubectl config view --minify --output 'jsonpath={..namespace}'
+```
+
+If nothing is returned → current namespace is `default`.
+
+### Switch to `dev-team`
+
+```bash
+kubectl config set-context --current --namespace=dev-team
+```
+
+### Switch to `testing`
+
+```bash
+kubectl config set-context --current --namespace=testing
+```
+
+### Switch to `default`
+
+```bash
+kubectl config set-context --current --namespace=default
+```
+
+### Switch to `kube-system`
+
+```bash
+kubectl config set-context --current --namespace=kube-system
+```
+
+### Verify current context
+
+```bash
+kubectl config current-context
+```
+
+### Get Pods from current namespace
+
+```bash
+kubectl get pods
+```
+
+### Get Pods from a specific namespace without switching
+
+```bash
+kubectl get pods -n dev-team
+kubectl get pods -n testing
+kubectl get pods -n default
+kubectl get pods -n kube-system
+```
+
+### Quick practical sequence
+
+```bash
+kubectl get ns
+
+kubectl config set-context --current --namespace=dev-team
+kubectl get pods
+
+kubectl config set-context --current --namespace=testing
+kubectl get pods
+
+kubectl config set-context --current --namespace=default
+kubectl get pods
+```
+
+**Easy rule to remember:**
+
+```text
+set-context --namespace
+        ↓
+changes your default namespace
+
+-n <namespace>
+        ↓
+changes namespace only for that command
+```
+
 
 This README is intended as a reusable command sheet for the practical Kubernetes administration and EKS exercises.
