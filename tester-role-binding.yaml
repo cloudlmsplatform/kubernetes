@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developer-rolebinding
+  namespace: lms-uat
+
+subjects:
+  - kind: User
+    name: tester
+    apiGroup: rbac.authorization.k8s.io
+
+roleRef:
+  kind: Role
+  name: tester-role
+  apiGroup: rbac.authorization.k8s.io

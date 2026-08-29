@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kubernetes Ingress Demo</title>
+</head>
+
+<body>
+
+<h1>Kubernetes Ingress Demo</h1>
+
+<p>This is the Frontend Application</p>
+
+<button onclick="login()">Login</button>
+<button onclick="payment()">Payment</button>
+
+<pre id="result"></pre>
+
+<script>
+
+async function login() {
+    const response = await fetch("/login");
+    const data = await response.json();
+
+    document.getElementById("result").textContent =
+        JSON.stringify(data, null, 2);
+}
+
+async function payment() {
+    const response = await fetch("/payment");
+    const data = await response.json();
+
+    document.getElementById("result").textContent =
+        JSON.stringify(data, null, 2);
+}
+
+</script>
+
+</body>
+</html>

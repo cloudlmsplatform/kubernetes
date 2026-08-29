@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: log-agent
+spec:
+  selector:
+    matchLabels:
+      app: log-agent
+
+  template:
+    metadata:
+      labels:
+        app: log-agent
+
+    spec:
+      containers:
+        - name: log-agent
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+
+#kubectl get pods -l app=log-agent -o wide

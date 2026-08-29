@@ -1,0 +1,764 @@
+StatefulSet
+   ↓
+PVC created
+   ↓
+Pod scheduled
+   ↓
+StorageClass knows the AZ/node
+   ↓
+EBS CSI Driver
+   ↓
+Create EBS volume in that AZ
+   ↓
+Attach volume to EC2 node
+   ↓
+Mount /data/db
+   ↓
+MongoDB starts
+===========================================
+
+https://kubernetes.io/docs/tasks/tools/
+
+
+
+
+kind version
+
+kind get clusters
+
+
+kind delete cluster --name k8s-admin
+
+
+kind create cluster --name k8s-admin
+kubectl get nodes
+
+kubectl get pods -A
+
+
+
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: nginx-pod
+  labels:
+    app: nginx
+
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+
+
+kubectl port-forward pod/nginx-pod 8080:80
+
+kubectl delete pod nginx-pod
+
+
+
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: nginx-deployment
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      labels:
+        app: nginx
+
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+			
+kubectl scale deployment nginx-deployment --replicas=5
+
+========================================
+
+
+kubectl config get-contexts
+kubectl config current-context
+kubectl config use-context <context-name>
+
+
+services
+ clusterip
+ nodeport
+ loadbalancing
+ 
+service provides
+	load balancing
+	service descovery  --->service descover pods using label and selectors
+	service expose applications to outside world
+	
+=======================================service-cluster-ip==============
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: nginx-service
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: nginx
+
+  ports:
+    - port: 80
+      targetPort: 80
+	
+
+
+
+
+kubectl run curl --image=curlimages/curl --restart=Never -- sleep 3600
+
+kubectl exec -it curl -- sh
+
+curl http://nginx-service
+
+getent hosts nginx-service
+
+-------------------------------------------nodeport =======
+30000–32767
+
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: nginx-nodeport
+
+spec:
+  type: NodePort
+
+  selector:
+    app: nginx
+
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
+
+
+
+
+ curl http://127.0.0.1:30080
+ 
+  kubectl get pods --show-labels
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+===================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: application-ingress
+spec:
+  rules:
+    - host: example.com
+      http:
+        paths:
+
+          - path: /login
+            pathType: Prefix
+            backend:
+              service:
+                name: login-service
+                port:
+                  number: 80
+
+          - path: /payment
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service
+                port:
+                  number: 80
+
+
+
+=======================
+docker build -t k8s-frontend:1.0 ./frontend
+
+docker build -t k8s-login:1.0 ./login
+docker build -t k8s-payment:1.0 ./payment
+
+
+kind load docker-image k8s-frontend:1.0 --name lms-aws
+kind load docker-image k8s-login:1.0 --name lms-aws
+kind load docker-image k8s-payment:1.0 --name lms-aws
+
+===============================
+
+kind create cluster --name lms-aws --config kind-ingress.yaml
+
+
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 531728396484.dkr.ecr.ap-south-1.amazonaws.com
+
+
+
+k8s-frontend:1.0
+k8s-login:1.0
+k8s-payment:1.0 
+
+
+
+docker tag k8s-frontend:1.0 531728396484.dkr.ecr.ap-south-1.amazonaws.com/lms-frontend:1
+docker tag k8s-login:1.0 531728396484.dkr.ecr.ap-south-1.amazonaws.com/lms-login:1
+docker tag k8s-payment:1.0  531728396484.dkr.ecr.ap-south-1.amazonaws.com/lms-payment:1
+
+
+docker push 531728396484.dkr.ecr.ap-south-1.amazonaws.com/lms-frontend:1
+docker push 531728396484.dkr.ecr.ap-south-1.amazonaws.com/lms-login:1
+docker push 531728396484.dkr.ecr.ap-south-1.amazonaws.com/lms-payment:1
+
+
+kubectl create secret docker-registry ecr-secret \
+  --docker-server=531728396484.dkr.ecr.ap-south-1.amazonaws.com \
+  --docker-username=AWS \
+  --docker-password="$(aws ecr get-login-password --region ap-south-1)"
+  
+  
+kubectl create secret docker-registry login-secret \
+  --docker-server=531728396484.dkr.ecr.ap-south-1.amazonaws.com \
+  --docker-username=AWS \
+  --docker-password="$(aws ecr get-login-password --region ap-south-1)"
+
+
+
+
+========== ingress flow ==========
+User
+ ↓
+DNS
+ ↓
+External Load Balancer / Entry Point
+ ↓
+Ingress Controller
+ ↓
+Ingress rule
+ ↓
+frontend-service
+ ↓
+Frontend Pod
+
+
+
+User
+ ↓
+DNS
+ ↓
+External Load Balancer / Entry Point
+ ↓
+Ingress Controller
+ ↓
+Ingress rule:
+ /login → login-service
+ ↓
+login-service
+ ↓
+EndpointSlice
+ ↓
+Login Pod
+
+
+
+================ install ingress contoller ============
+kubectl get pods -A | grep ingress
+
+kubectl get pods -n ingress-nginx -w
+kubectl get all -n ingress-nginx
+
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.2/deploy/static/provider/kind/deploy.yaml
+
+kubectl get pods -n ingress-nginx
+
+$ kubectl logs ingress-nginx-controller-6c76b5dc49-6pz2b -n ingress-nginx
+
+http://localhost:8080/
+
+
+
+172.21.0.1 - - [24/Aug/2026:14:06:56 +0000] "GET /login HTTP/1.1" 200 94 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36" 584 3.245 [default-login-service-80] [] 10.244.0.10:3000 94 3.244 200 58110c3628e40fdb238ec55d7e49743c
+
+kubectl get ingress
+kubectl describe ingress skillfynder-ingress
+
+kubectl get svc
+kubectl describe svc login-service
+
+kubectl get endpointslices
+
+kubectl get pods
+kubectl describe pod <pod>
+kubectl logs <pod>
+
+kubectl logs -n ingress-nginx \
+  -l app.kubernetes.io/component=controller
+
+
+====================configmap ========
+login-config.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: login-config
+data:
+  APP_ENV: dev
+  APP_NAME: Skillfynder Login
+  
+
+kubectl exec -it login-deployment-6cd4b77588-5fqnr -- env
+
+
+
+
+env:
+  - name: DB_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: login-secret
+        key: DB_USERNAME
+
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: login-secret
+        key: DB_PASSWORD
+		
+		
+kubectl get secret login-secret-new -o yaml
+
+echo 'TXlQYXNzd29yZDEyMw==' | base64 -d
+
+kubectl get pods -l app=login N
+
+kubectl rollout history deployment login-deployment
+
+================ RBAC =============
+kubectl api-resources --api-group=""
+
+
+kubectl create namespace lms-dev
+
+kubectl apply -f developer-role.yaml
+kubectl get role -n lms-dev
+
+
+create developer in k8 
+openssl genrsa -out developer.key 2048
+MSYS_NO_PATHCONV=1 openssl req -new -key developer.key -out developer.csr -subj "/CN=developer/O=lms"
+cat developer.csr | base64 | tr -d '\n'
+
+
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: developer
+spec:
+  request: XdJakVTTUJBR0ExVUVBd3dKWkdWMlpXeHZjR1Z5TVF3d0NncNCmdnRWlNQTBHQ1NxR1NJYjNEUUVCQVFVQUE0SUJEd0F3Z2dFS0FvSUJBUURGcXg5TmFpY0VXcUMwVWFiUVlSemUNCnNLeFpWTWRDSEdvRGVLVDNJSHNsR3pPSVA3Z1ZBYzFzV09EOGgyTlM4ak14ZFk3VE5OTmY4YmRQdDFJamk0VDQNCnZNekN0VU5qMDNqQnF0NGlyaktacnNQOEJvcDlHTFVIY09HenFSeTVCTWtnYjdodmR1bERkMWlpTUZvM1RpZm4NCkZFTmRXN2Y2VG9BSWpFOFFITG9LMGQ1QWxzMFNiV3NvbHlBWW9qaFl2a3l4cWVMajIrWk12RWh3NmJES05OZ2MNCjVIZTIvVll0VlBncWNpZkZid0hmZmJtMmRwNlRvOU5EQVlQbFVmNUxDeXE3c3BoVVdRcHUrSjhKS1dsZGpMWm0NClJsSFJ2a2o3Y1MxUW8zMnVLSEFUMDBqT1BORW8yR0hqbXNHL2F3RXU1OEI1bmltcGhtMkhEN3ROa2hMcUUzZTENCkFnTUJBQUdnQURBTkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQWg1TTZmU3dQY0hxWDFBWFNDUlhzMjMzdE53R3UNCnBadjRqUVBKdmJVd2Vrc2dvNVhXSjlCMTd2M2VPUnZsdDV5ek1jYUJkVlBkL3pLUngzYjlCeXAxS1hZQ0xNR1ENClFtT3lkQ01sV3ppOHoyUFhiblk0RWhtblNOWFd4MWQzQ0dFTVI2cXlSdmNPdkhMS3VxemtJZ2VxeDU5KzR2T3kNCmJsS0UzbWFTdGhRa3ZwMjVsbGY4UWk0VStJNjZRS2k4TFdJU2l3ZXFGOTVxS21yMm1UeXk1N0ROTURpU0dIU08NCnZDWkExOGZLTW1Kb3NJeHFWS1k1Q0xWZnp2V1VXbFB1ZmRERDdGWWVzcmR3VkhGOThoRUZnUXk3cnY2ZUozcjYNCjBpWVhvdU5QbTY2ZHJHblRSZWRjRkNRT2M1QXlQL3lSUkQxalVrV0M0UTJURXRNTWdIanpTemJIS0E9PQ0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0tDQo=
+  signerName: kubernetes.io/kube-apiserver-client
+  expirationSeconds: 86400
+  usages:
+    - client auth
+
+
+kubectl apply -f developer-csr.yaml
+kubectl get csr
+cat developer.csr | base64 | tr -d '\n'
+kubectl apply -f developer-csr.yaml
+kubectl certificate approve developer
+kubectl get csr developer
+
+========== developer role.yaml =========
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: developer-role
+  namespace: lms-dev
+
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+      - watch
+
+=========== developer rolebinding ======
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developer-rolebinding
+  namespace: lms-dev
+
+subjects:
+  - kind: User
+    name: developer
+    apiGroup: rbac.authorization.k8s.io
+
+roleRef:
+  kind: Role
+  name: developer-role
+  apiGroup: rbac.authorization.k8s.io
+
+
+
+============== commands to check permissions ===========
+kubectl auth can-i get pods --as=developer -n lms-dev
+
+kubectl auth can-i list services --as=developer -n lms-dev
+
+kubectl auth can-i delete pods --as=developer -n lms-dev
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+============= tester role ========
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tester-role
+  namespace: lms-dev
+
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+	  
+============== binding =====
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tester-rolebinding
+  namespace: lms-dev
+
+subjects:
+  - kind: User
+    name: tester
+    apiGroup: rbac.authorization.k8s.io
+
+roleRef:
+  kind: Role
+  name: tester-role
+  apiGroup: rbac.authorization.k8s.io
+  
+=================== commands =========
+kubectl auth can-i get pods --as=tester -n lms-dev
+kubectl auth can-i get deployments --as=tester -n lms-dev
+
+
+============ crete user ============
+Generate private key
+
+openssl genrsa -out tester.key 2048
+
+Create a Certificate Signing Request
+
+MSYS_NO_PATHCONV=1 openssl req -new \
+  -key tester.key \
+  -out tester.csr \
+  -subj "/CN=tester/O=lms"
+cat tester.csr | base64 | tr -d '\n'
+
+Submit CSR to Kubernetes
+
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: tester
+spec:
+  request: UNaRENDQVV3Q0FRQXdIekVQTUEwR0ExVUVBd3dHZEdWemRHVnlNUXd3Q2dZRFZRUUtEQU5zYlhNd2dnRWkNCk1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRQzFUdHVpVzZSTnNXZC9hUW5qUitaNHYzRDUNCjNLUUF4d2t5cVl3YXNndk1abEpsbGRaamFsZDZvOWJGdjZYZUhCazk1MHUwTFdLWEJ1KzRVdjJpbmZvd2RGSGcNCmpwRFJESGdkNDMrMnpoMG9kWFVEMnlLcXRpekI0QUFTSUtZSms1d004TC94a1Z4WGRxeHV2cFVsSzJ6Z05nelINClVTbk5jeFNwNmg2TDFOclV0c3hueUtaV3hwRllJM3kwZ1J3RVc5RFBHeEtmWmcxZWMxZjR3cUlLVVhoOHlIWlgNCnZUdW14bXJJNmlFRkZRNkpSTGpHODYyMm1yQXVVeU1VYlhVcmR3UmNXWjBjS2tTRGxNYWNwbzN0d2NmWEhvMTUNCi9ib1pIU09RWmU3cmpzMCtWQUZCalpzY0tkWmh2Y1dQMXg3M1ROQkhkWGo0N2pMNmVuczFnRVJtT3ZwNUFnTUINCkFBR2dBREFOQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBbWRWNjA0bVJxc3Y2bWIva1R3U2JIN2liZ0FsSVRIVU8NCi92eHhNYnYxVjMybVZUdVNmNk1pR0pHd1RpWHZicDJnYWkxY0JzR2xhR3VTdEpVQjJCejR1TDdzSlFGY2VhME4NCnNyY1ZnRi9mdkoyV2pFUHRLRytxNWFlZlBuQzIzbytBdGovci8xVjdZa2UzU3ZYOXE0d3ZWM1J2THIra21DMVkNCmo5Y2dEQUhjZVhEOEI1dm5SNEdzbk51NlpMSG9FVDVmM2MvZ1dLdGVLSUw3OUJ4SGRHYWtJNm1qSFZnU01jMG4NCkxneUhoR1NJTXlrbWpLOTFOWXVTdWhxZU1DWEZldzhRZjhhdEVlV0d6S216cERIdzR6V2tVS1FNSjE4Y3Vhc2kNClJQQmE3NXQwazBlZW42MHFNUFo1djY3RzNmVkRhcFdxODF1Q2VXZXcrMUNmSGV4NlorZHdDZz09DQotLS0tLUVORCBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0NCg==
+  signerName: kubernetes.io/kube-apiserver-client
+  expirationSeconds: 86400
+  usages:
+    - client auth
+
+
+
+
+kubectl apply -f tester-csr.yaml
+kubectl certificate approve tester
+kubectl get csr tester
+
+
+==================================daemon sets ======
+kubectl get nodes -o wide
+
+kubect get daemonsets
+kubectl get storageclass
+
+==================== ekd deployment ==========
+aws eks list-clusters 
+aws eks update-kubeconfig --region=ap-south-1 --name lmsdev
+kubectl config current-context
+kubectl get nodes
+
+
+AmazonEKSClusterAdminPolicy
+
+describe-nodegroup
+
+
+lms-dev-nodegroup
+
+kubectl get pods -l app=frontend -o wide
+
+
+
+
+kubectl run curl-test --image=curlimages/curl:8.10.1 --rm -it -- sh
+
+curl http://frontend-service:3000
+
+
+curl http://login-service:3000/login
+curl http://payment-service:3000/payment
+
+http://65.0.65.182:30080/payment
+
+====================
+kubectl get deployment -n kube-system
+kubectl get pods -n kube-system | findstr load-balancer
+
+
+install loadbalancer controller 
+https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html
+
+
+
+
+
+ kubectl get deployment -n kube-system
+
+kubectl get pods -n kube-system | findstr load-balancer
+
+aws eks describe-cluster `
+  --name lmsdev `
+  --region ap-south-1 `
+  --query "cluster.resourcesVpcConfig.vpcId" `
+  --output text
+
+
+
+============Install AWS Load Balancer Controller with Helm ==========
+
+https://docs.aws.amazon.com/eks/latest/userguide/lbc-helm.html
+
+
+curl.exe -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.14.1/docs/install/iam_policy.json
+
+dir iam_policy.json
+
+
+aws iam create-policy `
+  --policy-name AWSLoadBalancerControllerIAMPolicy `
+  --policy-document file://iam_policy.json
+
+
+aws iam list-policies `
+  --scope Local `
+  --query "Policies[?PolicyName=='AWSLoadBalancerControllerIAMPolicy'].[PolicyName,Arn]" `
+  --output table
+
+
+
+
+Step 2 — Create IAM Role for the Controller
+AWSLoadBalancerControllerRole
+
+AWS Load Balancer Controller Pod
+             ↓
+       ServiceAccount
+             ↓
+       EKS Pod Identity
+             ↓
+     IAM Role
+             ↓
+AWSLoadBalancerControllerIAMPolicy
+
+aws iam create-role `
+  --role-name AWSLoadBalancerControllerRole `
+  --assume-role-policy-document file://trust-policy.json
+  
+aws iam attach-role-policy `
+  --role-name AWSLoadBalancerControllerRole `
+  --policy-arn arn:aws:iam::531728396484:policy/AWSLoadBalancerControllerIAMPolicy
+
+
+eksctl utils associate-iam-oidc-provider `
+  --cluster=lms-uat `
+  --region=ap-south-1 `
+  --approve
+  
+eksctl create iamserviceaccount `
+  --cluster=lms-uat `
+  --namespace=kube-system `
+  --name=aws-load-balancer-controller `
+  --attach-policy-arn=arn:aws:iam::531728396484:policy/AWSLoadBalancerControllerIAMPolicy `
+  --override-existing-serviceaccounts `
+  --region=ap-south-1 `
+  --approve
+
+
+kubectl get serviceaccount aws-load-balancer-controller -n kube-system
+kubectl describe serviceaccount aws-load-balancer-controller -n kube-system
+
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update eks
+
+
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller `
+  -n kube-system `
+  --set clusterName=lms-uat `
+  --set serviceAccount.create=false `
+  --set serviceAccount.name=aws-load-balancer-controller `
+  --set region=ap-south-1 `
+  --set vpcId=vpc-0e37e6138d0a02c78
+
+
+kubectl get deployment -n kube-system aws-load-balancer-controller
+
+
+
+
+
+kubectl create namespace dev-team
+
+
+
+=============rbac ===========
+
+
+aws eks create-access-entry `
+  --cluster-name lmsdev `
+  --principal-arn <RAJA-IAM-ARN> `
+  --type STANDARD `
+  --kubernetes-groups dev-team `
+  --region ap-south-1
+
+
+
+kubectl create namespace dev-team
+kubectl get rolebinding developer-rolebinding -n dev-team
+
+
+
+aws configure --profile raja
+
+
+
+
+
+
+aws sts get-caller-identity --profile raja
+
+
+aws eks describe-cluster `
+  --name lmsdev `
+  --region ap-south-1 `
+  --profile raja
+
+kubectl config get-contexts
+aws eks update-kubeconfig `
+  --name lmsdev `
+  --region ap-south-1 `
+  --profile raja `
+  --alias lmsdev-raja
+
+
+
+kubectl config get-contexts
+
+kubectl config use-context lmsdev-raja
+
+kubectl config current-context
+kubectl auth can-i create pods -n dev-team
+
+
+=================== statefulset===========
+kubectl get pods -n kube-system | findstr ebs
+kubectl get csidrivers
+kubectl get storageclass
+
+
+kubectl get pods -n kube-system | findstr ebs-csi
+
+kubectl get serviceaccount ebs-csi-controller-sa -n kube-system
+kubectl get pods -n kube-system | findstr pod-identity
+
+
+
+
+
+
+
+AmazonEBSCSIDriverPolicyV2
+

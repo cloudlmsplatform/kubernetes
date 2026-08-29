@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: login-deployment
+  labels:
+    app: login
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: login
+
+  template:
+    metadata:
+      labels:
+        app: login
+
+    spec:
+      imagePullSecrets:
+        - name: login-secret
+
+      containers:
+        - name: login
+          image: 531728396484.dkr.ecr.ap-south-1.amazonaws.com/lms-login:1
+          ports:
+            - containerPort: 3000
+
+          env: 
+            - name: APP_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: login-config
+                  key: APP_ENV
+
+            - name: APP_NAME
+              valueFrom:
+                configMapKeyRef:
+                   name: login-config
+                   key: APP_NAME
+
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: login-secret-new
+                  key: DB_USERNAME
+
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: login-secret-new
+                  key: DB_PASSWORD
+
+          # Gives slow-starting applications time to start
+          startupProbe:
+            httpGet:
+              path: /login
+              port: 3000
+            failureThreshold: 30
+            periodSeconds: 2
+
+          # Controls whether Pod receives Service traffic
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          # Determines whether container should be restarted
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: login-config
+data:
+  APP_ENV: dev
+  APP_NAME: Skillfynder Login

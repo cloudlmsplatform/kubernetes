@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+spec:
+  serviceName: mongodb
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: mongodb
+
+  template:
+    metadata:
+      labels:
+        app: mongodb
+
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:7
+          ports:
+            - containerPort: 27017
+
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+
+        storageClassName: standard
+
+        resources:
+          requests:
+            storage: 1Gi
+
+#kubectl run dns-test --image=busybox:1.36 --restart=Never -- sleep 3600
+#kubectl exec -it dns-test -- sh
+#nslookup mongodb-0.mongodb.default.svc.cluster.local
+#db.createCollection("myCleanCollection")
